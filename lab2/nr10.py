@@ -4,7 +4,7 @@
 import turtle
 
 N = 3
-MAX_N = 7
+MAX_N = 8
 snowflake_mode = False
 COLORS = ["red", "blue", "green", "orange", "purple", "cyan", "brown", "magenta"]
 
@@ -58,15 +58,7 @@ def draw():
         t.penup()
         t.goto(-300, 0)
         t.pendown()
-        koch(t, 600, N, 0)
-    mode_str = "Снежинка" if snowflake_mode else "Кривая"
-    hud.goto(0, 260)
-    hud.color("darkblue")
-    hud.write(
-        f"Режим: {mode_str}  |  Глубина N = {N}  |  Сегментов: {segment_count}"
-        f"  |  + / - глубина  |  S — режим",
-        align="center", font=("Arial", 12, "bold")
-    )
+        koch(t, 600, N, 0) 
     screen.update()
 
 def increase():

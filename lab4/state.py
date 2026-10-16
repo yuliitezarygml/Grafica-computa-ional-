@@ -25,7 +25,7 @@ class SceneState:
     def __post_init__(self):
         if self.grade not in range(5, 11):
             raise ValueError("Уровень должен быть от 5 до 10")
-        self.distance = 7.8 if self.grade >= 8 else 5.8
+        self.distance = 8.8 if self.grade >= 8 else 5.8
         self.auto_rotate = self.grade >= 7
         self.lighting = self.grade >= 9
         self.textured = self.grade >= 10

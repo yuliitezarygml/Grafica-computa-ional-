@@ -125,24 +125,40 @@ class RenderWorker:
 
 def clip_segment(start, end, rect):
     """Отсечь отрезок в вещественных координатах даже при большом масштабе."""
-    x, y = start
-    dx, dy = end[0] - x, end[1] - y
-    if not all(math.isfinite(value) for value in (x, y, dx, dy)):
+    x1, y1 = start
+    x2, y2 = end
+    if not all(math.isfinite(value) for value in (x1, y1, x2, y2)):
         return None
-    low, high = 0.0, 1.0
-    for p, q in ((-dx, x - rect.left), (dx, rect.right - 1 - x),
-                 (-dy, y - rect.top), (dy, rect.bottom - 1 - y)):
-        if p == 0:
-            if q < 0:
-                return None
-        elif p < 0:
-            low = max(low, q / p)
-        else:
-            high = min(high, q / p)
-        if low > high:
+
+    def region(x, y):
+        return ((1 if x < rect.left else 2 if x > rect.right - 1 else 0)
+                | (4 if y < rect.top else 8 if y > rect.bottom - 1 else 0))
+
+    # Коэн - Сазерленд: координату границы задаём точно, чтобы избежать
+    # потери младших разрядов при вычислении x + t * dx на глубоком зуме.
+    while True:
+        first, second = region(x1, y1), region(x2, y2)
+        if not (first | second):
+            return ((round(x1), round(y1)), (round(x2), round(y2)))
+        if first & second:
             return None
-    return ((round(x + low * dx), round(y + low * dy)),
-            (round(x + high * dx), round(y + high * dy)))
+        outside = first or second
+        if outside & 8:
+            y = rect.bottom - 1
+            x = x1 + (x2 - x1) * ((y - y1) / (y2 - y1))
+        elif outside & 4:
+            y = rect.top
+            x = x1 + (x2 - x1) * ((y - y1) / (y2 - y1))
+        elif outside & 2:
+            x = rect.right - 1
+            y = y1 + (y2 - y1) * ((x - x1) / (x2 - x1))
+        else:
+            x = rect.left
+            y = y1 + (y2 - y1) * ((x - x1) / (x2 - x1))
+        if outside == first:
+            x1, y1 = x, y
+        else:
+            x2, y2 = x, y
 
 
 class FractalApp:
@@ -154,7 +170,7 @@ class FractalApp:
         pg.display.init()
         pg.font.init()
         self.screen = pg.display.set_mode((WIDTH, HEADER + HEIGHT + FOOTER))
-        pg.display.set_caption(f"Симонброт — лабораторная №3 — уровень {grade}")
+        pg.display.set_caption(f"Симонброт - лабораторная 3 - уровень {grade}")
         self.font = pg.font.SysFont("Arial", 16)
         self.small = pg.font.SysFont("Arial", 14)
         self.title_font = pg.font.SysFont("Arial", 26, bold=True)
@@ -222,7 +238,7 @@ class FractalApp:
             self.iterations = value
             self.request_render()
         else:
-            self.set_notice(f"Диапазон итераций: {MIN_ITERATIONS}–{MAX_ITERATIONS}")
+            self.set_notice(f"Диапазон итераций: от {MIN_ITERATIONS} до {MAX_ITERATIONS}")
 
     def zoom_at(self, position, factor):
         if not self.canvas_rect.collidepoint(position):
@@ -303,35 +319,35 @@ class FractalApp:
         self.text("СИМОНБРОТ", (20, 10), font=self.title_font)
         self.text(f"ЛАБОРАТОРНАЯ 03  /  ВАРИАНТ 13  /  УРОВЕНЬ {self.grade}",
                   (475, 22), MUTED, self.small)
-        self.text("zₙ₊₁ = zₙ² · (|Re zₙ| + i|Im zₙ|)² + c     z₀ = 0     |z|² > 4",
+        self.text("Комплексная плоскость. Начальное значение: 0. Радиус выхода: 2.",
                   (20, 47), MUTED)
         mode_label = {"bw": "чёрно-белая", "discrete": "по итерациям", "smooth": "плавная"}[self.mode]
-        self.text(f"Итерации: {self.iterations}   •   Палитра: {mode_label}", (20, 77), ACCENT)
+        self.text(f"Итерации: {self.iterations}   |   Палитра: {mode_label}", (20, 77), ACCENT)
         if self.grade >= 10:
-            self.text(f"×{self.zoom:.4g}   Центр: ({self.view.center_x:.11g}; {self.view.center_y:.11g})",
+            self.text(f"Масштаб: {self.zoom:.4g}   Центр: ({self.view.center_x:.11g}; {self.view.center_y:.11g})",
                       (440, 77), FOREGROUND, self.small)
         self.screen.blit(self.image, self.canvas_rect)
         self.draw_orbit()
         top = HEADER + HEIGHT + 9
-        controls = ["Esc — выход"]
+        controls = ["Esc: выход"]
         if self.grade >= 7:
-            controls += ["R — сброс", "B — ч/б / цвет"]
+            controls += ["R: сброс", "B: палитра"]
         if self.grade >= 8:
-            controls += ["+ / − или ↑ / ↓ — итерации"]
-        self.text("    ·    ".join(controls), (20, top), FOREGROUND, self.small)
+            controls += ["Вверх / Вниз: итерации"]
+        self.text("    |    ".join(controls), (20, top), FOREGROUND, self.small)
         second = []
         if self.grade >= 9:
-            second += ["ЛКМ — увеличить", "ПКМ — уменьшить"]
+            second += ["ЛКМ: увеличить", "ПКМ: уменьшить"]
         if self.grade >= 10:
-            second += ["СКМ — выбрать орбиту", "O — орбита", "S — PNG + JSON"]
+            second += ["СКМ: выбрать орбиту", "O: орбита", "S: сохранить"]
         if second:
-            self.text("    ·    ".join(second), (20, top + 22), MUTED, self.small)
+            self.text("    |    ".join(second), (20, top + 22), MUTED, self.small)
         status = f"Построение: {self.progress:.0%}" if self.rendering else f"Готово за {self.elapsed:.2f} с"
         if self.show_orbit and self.orbit_points:
             last = self.orbit_points[-1]
             outcome = "выход" if last.real**2 + last.imag**2 > 4 else "лимит итераций"
-            status += (f"  ·  c = {self.selected_c.real:.6g} {self.selected_c.imag:+.6g}i"
-                       f"  ·  {len(self.orbit_points) - 1} шагов, {outcome}")
+            status += (f"  |  c = {self.selected_c.real:.6g} {self.selected_c.imag:+.6g}i"
+                       f"  |  {len(self.orbit_points) - 1} шагов, {outcome}")
         if self.error:
             status = f"Ошибка построения: {self.error}"
         if time.monotonic() < self.notice_until:

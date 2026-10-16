@@ -32,7 +32,7 @@ class ViewTests(unittest.TestCase):
         horizontal = abs(view.point(401, 200, 800, 400) - center)
         vertical = abs(view.point(400, 201, 800, 400) - center)
         self.assertAlmostEqual(horizontal, vertical)
-        self.assertAlmostEqual(horizontal, 3 / 400)
+        self.assertAlmostEqual(horizontal, view.span / 400)
 
     def test_zoom_keeps_cursor_anchor(self):
         for factor in (0.5, 1.0, 2.0, 7.5):
@@ -171,6 +171,19 @@ class ColorTests(unittest.TestCase):
         counts = np.ones((1, 2), dtype=np.int32)
         rgb = colorize(counts, np.array([[5.1, 5.9]]), "smooth")
         self.assertFalse(np.array_equal(rgb[0, 0], rgb[0, 1]))
+
+    def test_smooth_palette_is_continuous_at_turnarounds(self):
+        counts = np.ones((1, 4), dtype=np.int32)
+        rgb = colorize(counts, np.array([[39.99, 40.01, 79.99, 80.01]]), "smooth")
+        for left, right in ((0, 1), (2, 3)):
+            delta = np.abs(rgb[0, left].astype(int) - rgb[0, right].astype(int))
+            self.assertTrue(np.all(delta <= 1))
+
+    def test_low_escape_numbers_have_distinct_visible_colors(self):
+        counts = np.arange(1, 9, dtype=np.int32).reshape(1, 8)
+        rgb = colorize(counts, counts.astype(float), "smooth")
+        self.assertEqual(len(np.unique(rgb.reshape(-1, 3), axis=0)), 8)
+        self.assertTrue(np.all(np.any(rgb > 0, axis=2)))
 
     def test_invalid_mode_and_shape(self):
         with self.assertRaises(ValueError):

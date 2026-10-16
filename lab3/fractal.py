@@ -48,9 +48,9 @@ class View:
     размерах изображения. Положительная мнимая ось направлена вверх.
     """
 
-    center_x: float = -0.3
-    center_y: float = 0.0
-    span: float = 3.0
+    center_x: float = -0.235
+    center_y: float = 0.175
+    span: float = 2.5
 
     def __post_init__(self) -> None:
         if not all(math.isfinite(v) for v in (self.center_x, self.center_y, self.span)):
@@ -213,7 +213,9 @@ def colorize(counts: np.ndarray, smooth: np.ndarray, mode: str = "smooth") -> np
         # Конечная палитра подчёркивает зависимость от целого номера шага.
         phase = ((counts[escaped] - 1) % 12) / 11
     else:
-        phase = np.mod(smooth[escaped], 40.0) / 40.0
+        # За 40 шагов проходим градиент вперёд, затем обратно.
+        # Косинус сохраняет непрерывность цвета в обеих точках разворота.
+        phase = 0.5 - 0.5 * np.cos(2 * np.pi * smooth[escaped] / 80.0)
     colors = np.column_stack(
         [np.interp(phase, _STOPS, _GRADIENT[:, channel]) for channel in range(3)]
     )

@@ -134,6 +134,8 @@ class OpenGLApp:
         self.box((.40, .50, -.10), (.04, .57, .58), glass)
         self.box((.43, .50, -.10), (.025, .57, .035), frame)
 
+        # Тёмный проём остаётся виден за открытым дверным полотном.
+        self.box((-1.11, -.18, .925), (.50, 1.06, .025), (.10, .075, .06))
         # Поворот двери вокруг петли: T(петля) * R * T(центр двери) * S.
         gl.glPushMatrix()
         gl.glTranslatef(-1.35, -.7, .96)
@@ -299,6 +301,7 @@ class OpenGLApp:
                 if event.key == pg.K_r:
                     state.reset()
                     self.held.clear()
+                    self.dragging = False
                 elif event.key == pg.K_f:
                     state.wireframe = not state.wireframe
                 elif event.key == pg.K_p:

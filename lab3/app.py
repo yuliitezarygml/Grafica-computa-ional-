@@ -329,17 +329,11 @@ class FractalApp:
         self.screen.blit(self.image, self.canvas_rect)
         self.draw_orbit()
         top = HEADER + HEIGHT + 9
-        controls = ["Esc: выход"]
-        if self.grade >= 7:
-            controls += ["R: сброс", "B: палитра"]
-        if self.grade >= 8:
-            controls += ["Вверх / Вниз: итерации"]
+        controls = [""]
+      
         self.text("    |    ".join(controls), (20, top), FOREGROUND, self.small)
         second = []
-        if self.grade >= 9:
-            second += ["ЛКМ: увеличить", "ПКМ: уменьшить"]
-        if self.grade >= 10:
-            second += ["СКМ: выбрать орбиту", "O: орбита", "S: сохранить"]
+
         if second:
             self.text("    |    ".join(second), (20, top + 22), MUTED, self.small)
         status = f"Построение: {self.progress:.0%}" if self.rendering else f"Готово за {self.elapsed:.2f} с"

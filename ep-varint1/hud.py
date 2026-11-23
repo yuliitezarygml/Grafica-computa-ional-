@@ -1,7 +1,7 @@
 """
 hud.py — интерфейс поверх игры (HUD):
   • спидометр справа вверху (зелёная → жёлтая → красная зона, стрелка, цифры);
-  • индикаторы слева вверху: ФАРЫ, ТОРМОЗ, ПЕРЕГАЗОВКА;
+  • индикаторы слева вверху: ФАРЫ, ТОРМОЗ;
   • подсказка по кнопкам внизу.
 Всё нарисовано примитивами. Цвета и размеры — в config.py (раздел «ИНТЕРФЕЙС»).
 Символы вроде стрелок ←/→ НЕ используем: не все шрифты умеют их рисовать.
@@ -39,10 +39,8 @@ class Hud:
 
     # ------------------------------------------------------------
     def draw(self, screen, car):
-        t = pygame.time.get_ticks() / 1000.0      # время — для мигания
-        blink = int(t * 4) % 2 == 0               # мигает 2 раза в секунду
-        self._draw_speedometer(screen, car, blink)
-        self._draw_indicators(screen, car, blink)
+        self._draw_speedometer(screen, car)
+        self._draw_indicators(screen, car)
         self._draw_controls(screen)
 
     # ------------------------------------------------------------
@@ -67,7 +65,7 @@ class Hud:
     # ------------------------------------------------------------
     #  Спидометр
     # ------------------------------------------------------------
-    def _draw_speedometer(self, screen, car, blink):
+    def _draw_speedometer(self, screen, car):
         ratio = car.speed_ratio
         color = zone_color(ratio)
         cx, cy = cfg.GAUGE_CENTER
@@ -75,8 +73,7 @@ class Hud:
 
         panel = pygame.Rect(0, 0, r * 2 + 40, r * 2 + 64)
         panel.center = (cx, cy + 22)
-        border = cfg.COLOR_RED if (car.over_revving and blink) else None
-        self._panel(screen, panel, border)
+        self._panel(screen, panel)
 
         # Дуга из маленьких сегментов. Горит до текущей скорости, дальше — серая.
         segments = 54
@@ -114,19 +111,13 @@ class Hud:
         self._text(screen, self.font_big, f"{abs(car.speed):.0f}", color, (cx, cy + 60))
         self._text(screen, self.font_small, "px/s", cfg.COLOR_TEXT_DIM, (cx, cy + 84))
 
-        # Надпись под спидометром
-        if car.over_revving and blink:
-            self._text(screen, self.font_mid, "ПЕРЕГАЗОВКА!", cfg.COLOR_RED,
-                       (cx, panel.bottom + 16))
-
     # ------------------------------------------------------------
     #  Индикаторы (как лампочки на приборке)
     # ------------------------------------------------------------
-    def _draw_indicators(self, screen, car, blink):
+    def _draw_indicators(self, screen, car):
         items = [
             ("ФАРЫ", car.headlights, cfg.COLOR_YELLOW),
             ("ТОРМОЗ", car.braking, cfg.COLOR_RED),
-            ("ПЕРЕГАЗОВКА", car.over_revving and blink, cfg.COLOR_RED),
         ]
         panel = pygame.Rect(14, 14, 190, 54 + len(items) * 30)
         self._panel(screen, panel)

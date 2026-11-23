@@ -128,11 +128,17 @@ class Hud:
             ("ТОРМОЗ", car.braking, cfg.COLOR_RED),
             ("ПЕРЕГАЗОВКА", car.over_revving and blink, cfg.COLOR_RED),
         ]
-        panel = pygame.Rect(14, 14, 190, 24 + len(items) * 30)
+        panel = pygame.Rect(14, 14, 190, 54 + len(items) * 30)
         self._panel(screen, panel)
 
+        # заголовок — название текущей машины
+        title = self.font_mid.render(car.m["name"].upper(), True, car.m["color_shine"])
+        screen.blit(title, (panel.left + 16, panel.top + 12))
+        pygame.draw.line(screen, cfg.COLOR_GAUGE_OFF, (panel.left + 14, panel.top + 38),
+                         (panel.right - 14, panel.top + 38), 1)
+
         for i, (label, on, color) in enumerate(items):
-            y = panel.top + 26 + i * 30
+            y = panel.top + 58 + i * 30
             lamp = (panel.left + 24, y)
             if on:
                 # свечение вокруг лампы

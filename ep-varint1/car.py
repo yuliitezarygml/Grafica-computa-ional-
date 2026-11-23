@@ -77,22 +77,35 @@ class Smoke:
 
 
 class Car:
-    """Спорткар: корпус + кабина + детали + колёса + фары + дым/пламя."""
+    """Машина: корпус + кабина + детали + колёса + фары + дым/пламя.
+    Форма и цвета берутся из текущей модели (self.m)."""
 
     def __init__(self):
         self.x = cfg.START_X                      # центр корпуса по X
         # центр корпуса по Y: колёса (низ = смещение + радиус) должны стоять на дороге
-        wheel_bottom = cfg.WHEEL_OFFSETS[0][1] + cfg.WHEEL_RADIUS
-        self.y = cfg.GROUND_Y - wheel_bottom
 
         self.speed = 0.0          # текущая скорость (px/с), знак = направление
         self.direction = 1        # 1 = смотрит вправо, -1 = влево (зеркало)
         self.headlights = False   # включены ли фары
         self.braking = False      # тормозим ли сейчас (для стоп-сигнала)
 
-        self.wheels = [Wheel(off) for off in cfg.WHEEL_OFFSETS]
+        self._apply_model()
         self.smoke = []
         self._smoke_timer = 0.0
+
+    # ------------------------------------------------------------
+    # Модель машины (форма и цвета из config.CAR)
+    # ------------------------------------------------------------
+    @property
+    def m(self):
+        """Словарь с формой и цветами машины из config.py."""
+        return cfg.CAR
+
+    def _apply_model(self):
+        """Создаёт колёса и ставит машину колёсами на дорогу."""
+        self.wheels = [Wheel(off) for off in self.m["wheels"]]
+        wheel_bottom = max(y for _, y in self.m["wheels"]) + cfg.WHEEL_RADIUS
+        self.y = cfg.GROUND_Y - wheel_bottom
 
     # ------------------------------------------------------------
     # Относительные координаты → экранные (ГЛАВНЫЙ метод иерархии)
@@ -151,8 +164,8 @@ class Car:
     def _move(self, dt):
         self.x += self.speed * dt
         # Границы экрана: машина целиком остаётся в окне
-        left = cfg.BODY_HALF_WIDTH
-        right = cfg.WIDTH - cfg.BODY_HALF_WIDTH
+        left = self.m["half_width"]
+        right = cfg.WIDTH - self.m["half_width"]
         if self.x < left:
             self.x = left
             self.speed = 0.0
@@ -174,7 +187,7 @@ class Car:
             self._smoke_timer += dt
             if self._smoke_timer >= cfg.SMOKE_INTERVAL:
                 self._smoke_timer = 0.0
-                pos = self.to_screen(cfg.EXHAUST_OFFSET)
+                pos = self.to_screen(self.m["exhaust_offset"])
                 self.smoke.append(Smoke(*pos))
         # обновляем и удаляем «умершие»
         for puff in self.smoke:
@@ -197,16 +210,16 @@ class Car:
         # 2) Сама машина
         if self.over_revving:
             self._draw_flame(screen)
-        self._poly(screen, cfg.COLOR_EXHAUST, cfg.EXHAUST_POINTS)
-        self._poly(screen, cfg.COLOR_BODY, cfg.CABIN_POINTS, outline=True)
-        self._poly(screen, cfg.COLOR_BODY, cfg.BODY_POINTS, outline=True)
-        self._poly(screen, cfg.COLOR_BODY_DARK, cfg.SKIRT_POINTS)
-        self._poly(screen, cfg.COLOR_STRIPE, cfg.STRIPE_POINTS)
-        self._line(screen, cfg.COLOR_BODY_SHINE, *cfg.BODY_SHINE, 2)
+        self._poly(screen, cfg.COLOR_EXHAUST, self.m["exhaust"])
+        self._poly(screen, self.m["color_body"], self.m["cabin"], outline=True)
+        self._poly(screen, self.m["color_body"], self.m["body"], outline=True)
+        self._poly(screen, self.m["color_body_dark"], self.m["skirt"])
+        self._poly(screen, self.m["color_stripe"], self.m["stripe"])
+        self._line(screen, self.m["color_shine"], *self.m["body_shine"], 2)
         self._draw_windows(screen)
         self._draw_door(screen)
-        self._poly(screen, cfg.COLOR_SPOILER, cfg.SPOILER_POINTS)
-        self._poly(screen, cfg.COLOR_MIRROR, cfg.MIRROR_POINTS)
+        self._poly(screen, cfg.COLOR_SPOILER, self.m["spoiler"])
+        self._poly(screen, cfg.COLOR_MIRROR, self.m["mirror"])
         self._draw_lights(screen)
         self._draw_wheels(screen)
 
@@ -216,10 +229,12 @@ class Car:
 
     # --- маленькие помощники ---
     def _poly(self, screen, color, points, outline=False):
+        if not points:          # пустой список = этой детали у модели нет
+            return
         pts = self._screen_points(points)
         pygame.draw.polygon(screen, color, pts)
         if outline:
-            pygame.draw.polygon(screen, cfg.COLOR_OUTLINE, pts, 2)
+            pygame.draw.polygon(screen, self.m["color_outline"], pts, 2)
 
     def _line(self, screen, color, start, end, width):
         pygame.draw.line(screen, color, self.to_screen(start), self.to_screen(end), width)
@@ -232,21 +247,22 @@ class Car:
         pygame.draw.ellipse(overlay, (*cfg.COLOR_SHADOW, cfg.SHADOW_ALPHA), rect)
 
     def _draw_windows(self, screen):
-        for window in cfg.WINDOWS:
+        for window in self.m["windows"]:
             self._poly(screen, cfg.COLOR_WINDOW, window)
-        for start, end in cfg.WINDOW_SHINES:
+        for start, end in self.m["window_shines"]:
             self._line(screen, cfg.COLOR_WINDOW_SHINE, start, end, 3)
 
     def _draw_door(self, screen):
-        for start, end in cfg.DOOR_LINES:
-            self._line(screen, cfg.COLOR_DOOR_LINE, start, end, 2)
-        self._poly(screen, cfg.COLOR_HANDLE, cfg.HANDLE_POINTS)
+        for start, end in self.m["door_lines"]:
+            self._line(screen, self.m["color_door"], start, end, 2)
+        for handle in self.m["handles"]:
+            self._poly(screen, cfg.COLOR_HANDLE, handle)
 
     def _draw_lights(self, screen):
         color = cfg.COLOR_HEADLIGHT_ON if self.headlights else cfg.COLOR_HEADLIGHT_OFF
-        self._poly(screen, color, cfg.HEADLIGHT_POINTS, outline=True)
+        self._poly(screen, color, self.m["headlight"], outline=True)
         tail = cfg.COLOR_BRAKE_GLOW if self.braking else cfg.COLOR_TAILLIGHT
-        self._poly(screen, tail, cfg.TAILLIGHT_POINTS)
+        self._poly(screen, tail, self.m["taillight"])
 
     def _draw_wheels(self, screen):
         for wheel in self.wheels:
@@ -260,7 +276,7 @@ class Car:
     def _draw_headlight_beam(self, overlay):
         """Жёлтый треугольник перед машиной (с учётом разворота)."""
         triangle = self._screen_points([
-            cfg.HEADLIGHT_START, cfg.HEADLIGHT_FAR_TOP, cfg.HEADLIGHT_FAR_BOTTOM,
+            self.m["headlight_start"], cfg.HEADLIGHT_FAR_TOP, cfg.HEADLIGHT_FAR_BOTTOM,
         ])
         pygame.draw.polygon(overlay, (*cfg.COLOR_HEADLIGHT_ON, cfg.HEADLIGHT_ALPHA), triangle)
 
@@ -269,12 +285,12 @@ class Car:
         glow = pygame.Surface((60, 60), pygame.SRCALPHA)
         for r, a in [(26, 40), (18, 70), (10, 110)]:
             pygame.draw.circle(glow, (*cfg.COLOR_BRAKE_GLOW, a), (30, 30), r)
-        cx, cy = self.to_screen(cfg.TAILLIGHT_CENTER)
+        cx, cy = self.to_screen(self.m["taillight_center"])
         screen.blit(glow, (cx - 30, cy - 30))
 
     def _draw_flame(self, screen):
         """Пламя из выхлопа при перегазовке: свечение + три треугольника, длина дрожит."""
-        ex, ey = cfg.EXHAUST_OFFSET
+        ex, ey = self.m["exhaust_offset"]
         length = random.uniform(35, 60)          # каждый кадр разная длина → «дрожит»
 
         # оранжевое свечение вокруг пламени

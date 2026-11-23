@@ -273,10 +273,19 @@ class Car:
         screen.blit(glow, (cx - 30, cy - 30))
 
     def _draw_flame(self, screen):
-        """Пламя из выхлопа при перегазовке: два треугольника, длина дрожит."""
+        """Пламя из выхлопа при перегазовке: свечение + три треугольника, длина дрожит."""
         ex, ey = cfg.EXHAUST_OFFSET
-        length = random.uniform(18, 32)
-        outer = [(ex, ey - 5), (ex - length, ey), (ex, ey + 5)]
-        inner = [(ex, ey - 3), (ex - length * 0.55, ey), (ex, ey + 3)]
+        length = random.uniform(35, 60)          # каждый кадр разная длина → «дрожит»
+
+        # оранжевое свечение вокруг пламени
+        gx, gy = self.to_screen((ex - length * 0.4, ey))
+        glow = pygame.Surface((90, 50), pygame.SRCALPHA)
+        pygame.draw.ellipse(glow, (*cfg.COLOR_FLAME_OUTER, 70), glow.get_rect())
+        screen.blit(glow, (gx - 45, gy - 25))
+
+        outer = [(ex, ey - 8), (ex - length, ey), (ex, ey + 8)]
+        middle = [(ex, ey - 5), (ex - length * 0.7, ey), (ex, ey + 5)]
+        core = [(ex, ey - 3), (ex - length * 0.4, ey), (ex, ey + 3)]
         pygame.draw.polygon(screen, cfg.COLOR_FLAME_OUTER, self._screen_points(outer))
-        pygame.draw.polygon(screen, cfg.COLOR_FLAME_INNER, self._screen_points(inner))
+        pygame.draw.polygon(screen, cfg.COLOR_FLAME_INNER, self._screen_points(middle))
+        pygame.draw.polygon(screen, (255, 255, 255), self._screen_points(core))

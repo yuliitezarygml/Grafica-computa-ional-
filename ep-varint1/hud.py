@@ -73,8 +73,8 @@ class Hud:
         cx, cy = cfg.GAUGE_CENTER
         r = cfg.GAUGE_RADIUS
 
-        panel = pygame.Rect(0, 0, r * 2 + 40, r * 2 + 30)
-        panel.center = (cx, cy + 8)
+        panel = pygame.Rect(0, 0, r * 2 + 40, r * 2 + 64)
+        panel.center = (cx, cy + 22)
         border = cfg.COLOR_RED if (car.over_revving and blink) else None
         self._panel(screen, panel, border)
 
@@ -111,8 +111,8 @@ class Hud:
         pygame.draw.circle(screen, color, (cx, cy), 9, 2)
 
         # Цифровая скорость
-        self._text(screen, self.font_big, f"{abs(car.speed):.0f}", color, (cx, cy + 38))
-        self._text(screen, self.font_small, "px/s", cfg.COLOR_TEXT_DIM, (cx, cy + 62))
+        self._text(screen, self.font_big, f"{abs(car.speed):.0f}", color, (cx, cy + 60))
+        self._text(screen, self.font_small, "px/s", cfg.COLOR_TEXT_DIM, (cx, cy + 84))
 
         # Надпись под спидометром
         if car.over_revving and blink:

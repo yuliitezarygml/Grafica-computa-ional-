@@ -184,6 +184,6 @@ COLOR_YELLOW = (255, 200, 60)
 COLOR_RED = (255, 60, 60)
 COLOR_GAUGE_OFF = (60, 66, 78)       # «выключенная» часть шкалы
 
-GAUGE_CENTER = (WIDTH - 110, 105)    # центр спидометра
+GAUGE_CENTER = (WIDTH - 110, 95)     # центр спидометра
 GAUGE_RADIUS = 72
 GAUGE_THICKNESS = 10

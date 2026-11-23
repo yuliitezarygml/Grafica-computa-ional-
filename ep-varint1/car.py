@@ -3,7 +3,7 @@ car.py — классы Wheel (колесо), Smoke (дым) и Car (машин�
 
 Идея «родитель — потомок»:
   Car (родитель) знает свою позицию (x, y) и направление (direction).
-  Wheel / окно / фары (потомки) хранят только СМЕЩЕНИЕ от центра корпуса.
+  Wheel / окна / фары (потомки) хранят только СМЕЩЕНИЕ от центра корпуса.
   Реальные координаты на экране считает один метод Car.to_screen().
 """
 import math
@@ -13,11 +13,11 @@ import config as cfg
 
 
 class Wheel:
-    """Колесо: круг + спица, которая вращается вокруг центра колеса."""
+    """Колесо: шина + диск + вращающиеся спицы + ступица."""
 
     def __init__(self, offset):
         self.offset = offset   # смещение центра колеса от центра корпуса
-        self.angle = 0.0       # текущий угол спицы (радианы)
+        self.angle = 0.0       # текущий угол спиц (радианы)
 
     def update(self, dx):
         """dx — на сколько пикселей проехала машина за кадр.
@@ -30,20 +30,19 @@ class Wheel:
 
     def draw(self, screen, center):
         """center — центр колеса в экранных координатах."""
-        # круг (шина)
-        pygame.draw.circle(screen, cfg.COLOR_WHEEL, center, cfg.WHEEL_RADIUS)
-        # спица: линия из центра в точку на окружности под углом self.angle
-        end = (
-            center[0] + math.cos(self.angle) * (cfg.WHEEL_RADIUS - 3),
-            center[1] + math.sin(self.angle) * (cfg.WHEEL_RADIUS - 3),
-        )
-        pygame.draw.line(screen, cfg.COLOR_SPOKE, center, end, cfg.SPOKE_WIDTH)
-        # вторая спица напротив — чтобы вращение было лучше видно
-        end2 = (
-            center[0] - math.cos(self.angle) * (cfg.WHEEL_RADIUS - 3),
-            center[1] - math.sin(self.angle) * (cfg.WHEEL_RADIUS - 3),
-        )
-        pygame.draw.line(screen, cfg.COLOR_SPOKE, center, end2, cfg.SPOKE_WIDTH)
+        cx, cy = center
+        pygame.draw.circle(screen, cfg.COLOR_TIRE, center, cfg.WHEEL_RADIUS)   # шина
+        pygame.draw.circle(screen, cfg.COLOR_RIM, center, cfg.RIM_RADIUS)      # диск
+
+        # Спицы: SPOKES_COUNT линий из центра, равномерно по кругу.
+        # self.angle — общий поворот, он и создаёт вращение.
+        for i in range(cfg.SPOKES_COUNT):
+            a = self.angle + i * 2 * math.pi / cfg.SPOKES_COUNT
+            end = (cx + math.cos(a) * (cfg.RIM_RADIUS - 2),
+                   cy + math.sin(a) * (cfg.RIM_RADIUS - 2))
+            pygame.draw.line(screen, cfg.COLOR_SPOKE, center, end, cfg.SPOKE_WIDTH)
+
+        pygame.draw.circle(screen, cfg.COLOR_HUB, center, cfg.HUB_RADIUS)      # ступица
 
 
 class Smoke:
@@ -71,7 +70,7 @@ class Smoke:
 
 
 class Car:
-    """Машина: корпус + колёса + фары + дым."""
+    """Машина: корпус + кабина + стёкла + колёса + фары + дым."""
 
     def __init__(self):
         self.x = cfg.START_X                      # центр корпуса по X
@@ -94,6 +93,9 @@ class Car:
         """Берёт точку относительно центра корпуса и даёт точку на экране.
         Здесь же делается зеркальное отражение: X умножается на direction."""
         return (self.x + rel[0] * self.direction, self.y + rel[1])
+
+    def _screen_points(self, points):
+        return [self.to_screen(p) for p in points]
 
     # ------------------------------------------------------------
     # Логика
@@ -138,7 +140,7 @@ class Car:
         dx = self.speed * dt
         for wheel in self.wheels:
             wheel.update(dx)
-            # Стоим — спица возвращается в исходное положение
+            # Стоим — спицы возвращаются в исходное положение
             if cfg.RESET_WHEELS_ON_STOP and self.speed == 0.0:
                 wheel.reset()
 
@@ -156,35 +158,65 @@ class Car:
         self.smoke = [p for p in self.smoke if p.alive]
 
     # ------------------------------------------------------------
-    # Отрисовка
+    # Отрисовка (порядок важен: что рисуется позже — лежит сверху)
     # ------------------------------------------------------------
     def draw(self, screen):
-        # Полупрозрачные эффекты (дым и свет фар) рисуем на отдельном слое
+        # 1) Полупрозрачные эффекты: тень, дым, свет фар
         overlay = pygame.Surface((cfg.WIDTH, cfg.HEIGHT), pygame.SRCALPHA)
+        self._draw_shadow(overlay)
         for puff in self.smoke:
             puff.draw(overlay)
         if self.headlights:
-            self._draw_headlights(overlay)
+            self._draw_headlight_beam(overlay)
         screen.blit(overlay, (0, 0))
 
-        self._draw_body(screen)
-        self._draw_window(screen)
+        # 2) Сама машина
+        self._draw_poly(screen, cfg.COLOR_EXHAUST, cfg.EXHAUST_POINTS)
+        for bumper in cfg.BUMPERS:
+            self._draw_poly(screen, cfg.COLOR_BUMPER, bumper)
+        self._draw_poly(screen, cfg.COLOR_BODY, cfg.CABIN_POINTS, outline=True)
+        self._draw_poly(screen, cfg.COLOR_BODY, cfg.BODY_POINTS, outline=True)
+        for window in cfg.WINDOWS:
+            self._draw_poly(screen, cfg.COLOR_WINDOW, window)
+        self._draw_door(screen)
+        self._draw_lights(screen)
+        self._draw_wheels(screen)
+
+    def _draw_poly(self, screen, color, points, outline=False):
+        pts = self._screen_points(points)
+        pygame.draw.polygon(screen, color, pts)
+        if outline:
+            pygame.draw.polygon(screen, cfg.COLOR_OUTLINE, pts, 2)
+
+    def _draw_shadow(self, overlay):
+        w, h = cfg.SHADOW_SIZE
+        rect = pygame.Rect(0, 0, w, h)
+        rect.center = (self.x, cfg.GROUND_Y + 2)
+        pygame.draw.ellipse(overlay, (*cfg.COLOR_SHADOW, cfg.SHADOW_ALPHA), rect)
+
+    def _draw_door(self, screen):
+        for start, end in cfg.DOOR_LINES:
+            pygame.draw.line(screen, cfg.COLOR_DOOR_LINE,
+                             self.to_screen(start), self.to_screen(end), 2)
+        self._draw_poly(screen, cfg.COLOR_HANDLE, cfg.HANDLE_POINTS)
+
+    def _draw_lights(self, screen):
+        color = cfg.COLOR_HEADLIGHT_ON if self.headlights else cfg.COLOR_HEADLIGHT_OFF
+        self._draw_poly(screen, color, cfg.HEADLIGHT_POINTS, outline=True)
+        self._draw_poly(screen, cfg.COLOR_TAILLIGHT, cfg.TAILLIGHT_POINTS)
+
+    def _draw_wheels(self, screen):
         for wheel in self.wheels:
-            wheel.draw(screen, self.to_screen(wheel.offset))
+            center = self.to_screen(wheel.offset)
+            # арка: верхняя половина тёмного круга чуть больше колеса
+            pygame.draw.circle(screen, cfg.COLOR_ARCH, center,
+                               cfg.WHEEL_RADIUS + cfg.ARCH_PADDING,
+                               draw_top_left=True, draw_top_right=True)
+            wheel.draw(screen, center)
 
-    def _draw_body(self, screen):
-        points = [self.to_screen(p) for p in cfg.BODY_POINTS]
-        pygame.draw.polygon(screen, cfg.COLOR_BODY, points)
-
-    def _draw_window(self, screen):
-        points = [self.to_screen(p) for p in cfg.WINDOW_POINTS]
-        pygame.draw.polygon(screen, cfg.COLOR_WINDOW, points)
-
-    def _draw_headlights(self, overlay):
+    def _draw_headlight_beam(self, overlay):
         """Жёлтый треугольник перед машиной (с учётом разворота)."""
-        triangle = [
-            self.to_screen(cfg.HEADLIGHT_START),
-            self.to_screen(cfg.HEADLIGHT_FAR_TOP),
-            self.to_screen(cfg.HEADLIGHT_FAR_BOTTOM),
-        ]
-        pygame.draw.polygon(overlay, (*cfg.COLOR_HEADLIGHT, cfg.HEADLIGHT_ALPHA), triangle)
+        triangle = self._screen_points([
+            cfg.HEADLIGHT_START, cfg.HEADLIGHT_FAR_TOP, cfg.HEADLIGHT_FAR_BOTTOM,
+        ])
+        pygame.draw.polygon(overlay, (*cfg.COLOR_HEADLIGHT_ON, cfg.HEADLIGHT_ALPHA), triangle)

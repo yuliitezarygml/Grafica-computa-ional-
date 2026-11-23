@@ -13,6 +13,7 @@ import pygame
 
 import config as cfg
 from car import Car
+from hud import Hud
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -98,40 +99,6 @@ def _draw_road(bg):
 
 
 # ============================================================
-#  HUD (текст на экране)
-# ============================================================
-def make_font(size):
-    """Берём первый найденный шрифт из списка (все поддерживают кириллицу)."""
-    return pygame.font.SysFont("helveticaneue,arial,dejavusans,verdana", size, bold=True)
-
-
-def draw_hud(screen, font, car):
-    """Панель в левом верхнем углу: скорость, шкала скорости, состояние фар, подсказка.
-    Нарочно без символов вроде стрелок — не все шрифты умеют их рисовать."""
-    panel = pygame.Surface((340, 124), pygame.SRCALPHA)
-    pygame.draw.rect(panel, (0, 0, 0, 120), panel.get_rect(), border_radius=10)
-    screen.blit(panel, (12, 12))
-
-    speed = abs(car.speed)
-    lines = [
-        f"Скорость: {speed:.0f} px/s",
-        f"Фары (F): {'ВКЛ' if car.headlights else 'выкл'}",
-        "Ехать: A / D или стрелки",
-    ]
-    for i, text in enumerate(lines):
-        surface = font.render(text, True, cfg.COLOR_TEXT)
-        screen.blit(surface, (26, 22 + i * 26))
-
-    # шкала скорости (прямоугольники)
-    bar = pygame.Rect(26, 106, 312, 10)
-    pygame.draw.rect(screen, (200, 200, 200), bar, border_radius=5, width=1)
-    fill = bar.copy()
-    fill.width = int(bar.width * min(1.0, speed / cfg.MAX_SPEED))
-    if fill.width > 0:
-        pygame.draw.rect(screen, (90, 220, 120), fill, border_radius=5)
-
-
-# ============================================================
 #  ГЛАВНЫЙ ЦИКЛ
 # ============================================================
 def main():
@@ -139,10 +106,10 @@ def main():
     screen = pygame.display.set_mode((cfg.WIDTH, cfg.HEIGHT))
     pygame.display.set_caption(cfg.TITLE)
     clock = pygame.time.Clock()
-    font = make_font(22)
 
     background = make_background()
     car = Car()
+    hud = Hud()          # интерфейс — в файле hud.py
 
     running = True
     while running:
@@ -165,7 +132,7 @@ def main():
         # 3) Отрисовка
         screen.blit(background, (0, 0))
         car.draw(screen)
-        draw_hud(screen, font, car)
+        hud.draw(screen, car)
         pygame.display.flip()
 
     pygame.quit()

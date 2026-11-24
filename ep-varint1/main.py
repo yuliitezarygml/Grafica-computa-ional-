@@ -122,8 +122,7 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     running = False
-                elif event.key == pygame.K_f:
-                    car.toggle_headlights()
+              
 
         # 2) Обновление логики (зажатые клавиши)
         move = get_move_input(pygame.key.get_pressed())

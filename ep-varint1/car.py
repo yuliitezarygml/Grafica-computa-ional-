@@ -131,8 +131,7 @@ class Car:
         """«Перегазовка» — скорость в красной зоне."""
         return self.speed_ratio >= cfg.RED_ZONE
 
-    def toggle_headlights(self):
-        self.headlights = not self.headlights
+   
 
     # ------------------------------------------------------------
     # Логика
@@ -211,13 +210,16 @@ class Car:
         if self.over_revving:
             self._draw_flame(screen)
         self._poly(screen, cfg.COLOR_EXHAUST, self.m["exhaust"])
-        self._poly(screen, self.m["color_body"], self.m["cabin"], outline=True)
+        # верх может быть другого цвета (если в модели есть "color_cabin")
+        cabin_color = self.m.get("color_cabin", self.m["color_body"])
+        self._poly(screen, cabin_color, self.m["cabin"], outline=True)
         self._poly(screen, self.m["color_body"], self.m["body"], outline=True)
         self._poly(screen, self.m["color_body_dark"], self.m["skirt"])
         self._poly(screen, self.m["color_stripe"], self.m["stripe"])
         self._line(screen, self.m["color_shine"], *self.m["body_shine"], 2)
         self._draw_windows(screen)
         self._draw_door(screen)
+        self._draw_label(screen)
         self._poly(screen, cfg.COLOR_SPOILER, self.m["spoiler"])
         self._poly(screen, cfg.COLOR_MIRROR, self.m["mirror"])
         self._draw_lights(screen)
@@ -257,6 +259,21 @@ class Car:
             self._line(screen, self.m["color_door"], start, end, 2)
         for handle in self.m["handles"]:
             self._poly(screen, cfg.COLOR_HANDLE, handle)
+
+    def _draw_label(self, screen):
+        """Надпись на борту. Позиция — относительная (едет с машиной),
+        но сам текст НЕ отражаем, чтобы буквы читались в обе стороны."""
+        text = self.m.get("label")
+        if not text:
+            return
+        if not hasattr(self, "_label_font"):
+            self._label_font = pygame.font.SysFont(cfg.FONT_NAMES, self.m["label_size"], bold=True)
+        center = self.to_screen(self.m["label_pos"])
+        shadow = self._label_font.render(text, True, self.m["color_outline"])
+        label = self._label_font.render(text, True, self.m["color_label"])
+        rect = label.get_rect(center=center)
+        screen.blit(shadow, rect.move(1, 1))
+        screen.blit(label, rect)
 
     def _draw_lights(self, screen):
         color = cfg.COLOR_HEADLIGHT_ON if self.headlights else cfg.COLOR_HEADLIGHT_OFF
